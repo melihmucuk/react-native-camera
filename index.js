@@ -7,6 +7,7 @@ import {
   StyleSheet,
   requireNativeComponent,
   View,
+  Dimensions
 } from 'react-native';
 
 const CameraManager = NativeModules.CameraManager || NativeModules.CameraModule;
@@ -202,6 +203,18 @@ export default class Camera extends Component {
 
   _onBarCodeRead = (data) => {
     if (this.props.onBarCodeRead) {
+      if(Platform.OS === 'android'){
+        const scale = Dimensions.get('window').scale;
+        const bottomLeft = data.bounds.origin.bottom_left;
+        const topLeft = data.bounds.origin.top_left;
+        const topRight = data.bounds.origin.top_right;
+
+        let centerX = (parseInt(topLeft.x) + ((parseInt(topRight.x) - parseInt(topLeft.x))/2)) / scale;
+        let centerY = (parseInt(topLeft.y) + ((parseInt(bottomLeft.y) - parseInt(topLeft.y))/2)) / scale; 
+
+        data.bounds.origin.x = centerX;
+        data.bounds.origin.y = centerY;
+      }
       this.props.onBarCodeRead(data)
     }
   };
