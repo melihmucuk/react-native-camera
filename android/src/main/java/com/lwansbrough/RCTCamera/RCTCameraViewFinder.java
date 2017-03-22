@@ -7,26 +7,27 @@ package com.lwansbrough.RCTCamera;
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
+import android.os.AsyncTask;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.TextureView;
-import android.os.AsyncTask;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
-
-import java.util.List;
-import java.util.EnumMap;
-import java.util.EnumSet;
-
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.DecodeHintType;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.PlanarYUVLuminanceSource;
 import com.google.zxing.Result;
+import com.google.zxing.ResultPoint;
 import com.google.zxing.common.HybridBinarizer;
+
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.List;
 
 class RCTCameraViewFinder extends TextureView implements TextureView.SurfaceTextureListener, Camera.PreviewCallback {
     private int _cameraType;
@@ -286,6 +287,15 @@ class RCTCameraViewFinder extends TextureView implements TextureView.SurfaceText
             int width = size.width;
             int height = size.height;
 
+            ReactContext reactContext = RCTCameraModule.getReactContextSingleton();
+            //DisplayMetrics metrics = reactContext.getResources().getDisplayMetrics();
+
+            //int width = metrics.widthPixels;
+            //int height = metrics.heightPixels;
+
+            Log.i("oveo width pixel", String.valueOf(width));
+            Log.i("oveo height pixel", String.valueOf(height));
+
             // rotate for zxing if orientation is portrait
             if (RCTCamera.getInstance().getActualDeviceOrientation() == 0) {
               byte[] rotated = new byte[imageData.length];
@@ -304,10 +314,40 @@ class RCTCameraViewFinder extends TextureView implements TextureView.SurfaceText
                 BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
                 Result result = _multiFormatReader.decodeWithState(bitmap);
 
-                ReactContext reactContext = RCTCameraModule.getReactContextSingleton();
+                //ReactContext reactContext = RCTCameraModule.getReactContextSingleton();
+
                 WritableMap event = Arguments.createMap();
                 event.putString("data", result.getText());
                 event.putString("type", result.getBarcodeFormat().toString());
+
+                ResultPoint[] resPoint = result.getResultPoints();
+                WritableMap pos = Arguments.createMap();
+
+                for(int i=0; i<resPoint.length; i++){
+                    String position = "";
+                    WritableMap current = Arguments.createMap();
+                    current.putString("x", Float.toString(resPoint[i].getX()));
+                    current.putString("y", Float.toString(resPoint[i].getY()));
+
+                    switch (i){
+                        case 0:
+                            position = "bottom_left";
+                            break;
+                        case 1:
+                            position = "top_left";
+                            break;
+                        case 2:
+                            position = "top_right";
+                            break;
+                    }
+
+                    pos.putMap(position, current);
+                }
+
+                WritableMap origin = Arguments.createMap();
+                origin.putMap("origin", pos);
+                event.putMap("bounds", origin);
+
                 reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("CameraBarCodeReadAndroid", event);
 
             } catch (Throwable t) {
